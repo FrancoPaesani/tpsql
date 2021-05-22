@@ -198,8 +198,8 @@ CREATE TABLE [LOCALHOST1].Item_Faccomp_Acc(
   					icompacc_acc decimal(18,0) FOREIGN KEY REFERENCES LOCALHOST1.Accesorio(acc_codigo),
 					icompacc_cantidad numeric(4),
 					icompacc_precio decimal(12,2),
-					CONSTRAINT FK_ITEM_VENTA_ACC FOREIGN KEY(icompacc_numero,icompacc_sucursal) REFERENCES LOCALHOST1.Factura_Compra(faccomp_numero,faccomp_sucursal),
-					CONSTRAINT PK_ITEM_VENTA_ACC PRIMARY KEY(icompacc_numero,icompacc_acc)
+					CONSTRAINT FK_ITEM_COMPRA_ACC FOREIGN KEY(icompacc_numero,icompacc_sucursal) REFERENCES LOCALHOST1.Factura_Compra(faccomp_numero,faccomp_sucursal),
+					CONSTRAINT PK_ITEM_COMPRA_ACC PRIMARY KEY(icompacc_numero,icompacc_acc)
 )
 
 ----------------------------------Migración de Tablas----------------------------------
