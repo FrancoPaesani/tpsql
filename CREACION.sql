@@ -162,7 +162,7 @@ CREATE TABLE [LOCALHOST1].Item_Venta_Pc(
 					CONSTRAINT PK_ITEM_VENTA_PC PRIMARY KEY(ivenpc_numero,ivenpc_pc)
 )
 
-CREATE TABLE [LOCALHOST1].Item_Facven_Acc(
+CREATE TABLE [LOCALHOST1].ITEM_VENTA_ACC(
 					ivenacc_numero decimal(18,0),
   				ivenacc_sucursal int NOT NULL,
 					ivenacc_acc decimal(18,0) FOREIGN KEY REFERENCES LOCALHOST1.Accesorio(acc_codigo),
@@ -192,7 +192,7 @@ CREATE TABLE [LOCALHOST1].Item_Compra_Pc(
 					CONSTRAINT PK_ITEM_COMPRA_PC PRIMARY KEY(icomppc_numero,icomppc_pc)
 )
 
-CREATE TABLE [LOCALHOST1].Item_Faccomp_Acc(
+CREATE TABLE [LOCALHOST1].Item_Compra_Acc(
 					icompacc_numero decimal(18,0),
   					icompacc_sucursal int NOT NULL,
   					icompacc_acc decimal(18,0) FOREIGN KEY REFERENCES LOCALHOST1.Accesorio(acc_codigo),
@@ -202,6 +202,18 @@ CREATE TABLE [LOCALHOST1].Item_Faccomp_Acc(
 					CONSTRAINT PK_ITEM_COMPRA_ACC PRIMARY KEY(icompacc_numero,icompacc_acc)
 )
 
+-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% INDICES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+CREATE INDEX IDX_FAB_NOMBRE 
+ON [LOCALHOST1].Fabricante (fab_nombre);
+
+CREATE INDEX INDEX_SUCURSAL
+ON [LOCALHOST1].[SUCURSAL] (suc_dir,suc_telefono);
+
+CREATE INDEX INDEX_CLIENTE 
+ON [LOCALHOST1].[CLIENTE] (cli_dni,cli_apellido);
+
+DROP 
 ----------------------------------Migración de Tablas----------------------------------
 
 --Migración de Clientes
@@ -254,12 +266,7 @@ INSERT INTO [LOCALHOST1].[Accesorio](
 				acc_descripcion,
 				acc_precio
 )
-/*
-SELECT ACCESORIO_CODIGO, AC_DESCRIPCION, COMPRA_PRECIO
-FROM GD1C2021.gd_esquema.Maestra
-WHERE ACCESORIO_CODIGO IS NOT NULL AND COMPRA_PRECIO IS NOT NULL
-GROUP BY ACCESORIO_CODIGO, AC_DESCRIPCION, COMPRA_PRECIO
-*/
+
 SELECT DISTINCT maestra.[ACCESORIO_CODIGO],
 								maestra.[AC_DESCRIPCION]
 								, maestra.[COMPRA_PRECIO]
@@ -269,7 +276,7 @@ WHERE [ACCESORIO_CODIGO] is not NULL and [COMPRA_PRECIO] is not null
 
 GO
 
---Migración de PlavaDeVideo
+--Migración de PlacaDeVideo
 
 INSERT INTO [LOCALHOST1].[PLACA_VIDEO](
 					pvideo_chipset,
@@ -372,16 +379,6 @@ WHERE [DISCO_RIGIDO_CODIGO] is not NULL
 
 --Migracion de PC
 
-select * from gd_esquema.Maestra
-
-select PC_CODIGO, PC_ALTO, PC_ANCHO, PC_PROFUNDIDAD, DISCO_RIGIDO_CODIGO, MEMORIA_RAM_CODIGO, MICROPROCESADOR_CODIGO, COMPRA_PRECIO from gd_esquema.Maestra
-join LOCALHOST1.Placa_Video on PLACA_VIDEO_CAPACIDAD = pvideo_capacidad AND
-PLACA_VIDEO_CHIPSET = pvideo_chipset AND PLACA_VIDEO_VELOCIDAD = pvideo_velocidad AND PLACA_VIDEO_FABRICANTE = PLACA_VIDEO_FABRICANTE AND
-PLACA_VIDEO_MODELO = pvideo_modelo
-where PC_CODIGO is not null and COMPRA_PRECIO is not null
-group by PC_CODIGO, PC_ALTO, PC_ANCHO, PC_PROFUNDIDAD, DISCO_RIGIDO_CODIGO, MEMORIA_RAM_CODIGO, MICROPROCESADOR_CODIGO, COMPRA_PRECIO
-
-
 INSERT INTO [LOCALHOST1].[PC](
 					pc_codigo, 
 					pc_alto ,
@@ -461,3 +458,149 @@ INSERT INTO [LOCALHOST1].[SUCURSAL](
                   
 FROM GD1C2021.gd_esquema.Maestra maestra        
 JOIN [LOCALHOST1].[CIUDAD] on ciudad = ciu_nombre
+
+
+--Stock PC
+INSERT INTO [LOCALHOST1].[STOCK_PC](
+					stockpc_pc, 
+					stockpc_sucursal ,
+					stockpc_cantidad 
+) 
+SELECT DISTINCT maestra.pc_codigo, suc_codigo, 0 as cantidad
+FROM GD1C2021.gd_esquema.Maestra maestra
+JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR
+AND suc_mail = maestra.SUCURSAL_MAIL AND suc_telefono = maestra.SUCURSAL_TEL
+JOIN [LOCALHOST1].[PC] ON Pc.pc_codigo = maestra.PC_CODIGO
+WHERE maestra.PC_CODIGO IS NOT NULL AND maestra.CIUDAD IS NOT NULL AND  maestra.SUCURSAL_DIR IS NOT NULL
+AND maestra.COMPRA_NUMERO IS NOT NULL AND maestra.FACTURA_NUMERO is NULL
+GROUP BY suc_codigo, maestra.PC_CODIGO, SUCURSAL_DIR
+
+--Stock ACC
+INSERT INTO [LOCALHOST1].[Stock_Accesorio](
+					stockacc_acc, 
+					stockacc_sucursal,
+					stockacc_cantidad
+) 
+SELECT DISTINCT maestra.ACCESORIO_CODIGO, suc_codigo, 0 as cantidad
+FROM GD1C2021.gd_esquema.Maestra maestra
+JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR
+AND suc_mail = maestra.SUCURSAL_MAIL AND suc_telefono = maestra.SUCURSAL_TEL
+JOIN [LOCALHOST1].[Accesorio] ON Accesorio.acc_codigo = maestra.ACCESORIO_CODIGO
+WHERE maestra.ACCESORIO_CODIGO IS NOT NULL AND maestra.CIUDAD IS NOT NULL AND  maestra.SUCURSAL_DIR IS NOT NULL
+AND maestra.COMPRA_NUMERO IS NOT NULL AND maestra.FACTURA_NUMERO is NULL
+GROUP BY suc_codigo, maestra.ACCESORIO_CODIGO, SUCURSAL_DIR
+
+-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% VISTA FACTURAS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+CREATE VIEW LOCALHOST1.FACTURAS AS
+SELECT DISTINCT maestra.[COMPRA_NUMERO], suc_codigo,maestra.[COMPRA_FECHA], maestra.FACTURA_NUMERO, maestra.FACTURA_FECHA,
+SUCURSAL_DIR, SUCURSAL_MAIL, SUCURSAL_TEL, CLIENTE_APELLIDO, CLIENTE_DNI, CLIENTE_NOMBRE
+FROM GD1C2021.gd_esquema.Maestra maestra
+JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR
+AND suc_mail = maestra.SUCURSAL_MAIL AND suc_telefono = maestra.SUCURSAL_TEL
+WHERE maestra.SUCURSAL_DIR IS NOT NULL
+
+-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-- Migración de Factura Compra
+
+INSERT INTO [LOCALHOST1].[FACTURA_COMPRA](
+  					faccomp_numero,
+					faccomp_sucursal,
+					faccomp_fecha,
+					faccomp_total
+ )
+ 
+SELECT DISTINCT maestra.[COMPRA_NUMERO], maestra.suc_codigo,maestra.[COMPRA_FECHA],0 AS cantidad
+FROM LOCALHOST1.FACTURAS maestra
+WHERE maestra.SUCURSAL_DIR IS NOT NULL AND COMPRA_NUMERO IS NOT NULL
+
+-- Migración de Factura Venta
+
+
+INSERT INTO [LOCALHOST1].[FACTURA_VENTA](
+					facven_numero,
+					facven_sucursal,
+					facven_cliente,
+					facven_fecha,
+					facven_total
+)
+
+SELECT DISTINCT FACTURA_NUMERO, maestra.suc_codigo, cli_codigo, FACTURA_FECHA, 0
+from LOCALHOST1.FACTURAS maestra
+join [LOCALHOST1].Cliente on maestra.CLIENTE_APELLIDO = cli_apellido and cli_dni = maestra.CLIENTE_DNI and cli_nombre = maestra.CLIENTE_NOMBRE 
+where FACTURA_NUMERO is not null
+
+-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Migración de Items %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+-- Migración de Items COMPRA PC 
+INSERT INTO [LOCALHOST1].[ITEM_COMPRA_PC](
+       			icomppc_numero,
+  					icomppc_sucursal,
+						icomppc_pc,
+						icomppc_cantidad,
+						icomppc_precio
+)
+
+SELECT DISTINCT maestra.[COMPRA_NUMERO], suc_codigo, PC.pc_codigo, SUM(maestra.[COMPRA_CANTIDAD]),maestra.[COMPRA_PRECIO]
+FROM GD1C2021.gd_esquema.Maestra maestra
+JOIN [LOCALHOST1].SUCURSAL ON suc_dir = maestra.SUCURSAL_DIR AND suc_mail = maestra.SUCURSAL_MAIL AND suc_telefono = maestra.SUCURSAL_TEL
+JOIN [LOCALHOST1].PC ON PC.pc_codigo = maestra.PC_CODIGO 
+WHERE maestra.SUCURSAL_DIR IS NOT NULL AND COMPRA_NUMERO IS NOT NULL
+GROUP BY maestra.[COMPRA_NUMERO], suc_codigo, PC.pc_codigo,maestra.[COMPRA_PRECIO]
+
+
+                               
+-- Migración de Items COMPRA ACCESORIO 
+
+INSERT INTO [LOCALHOST1].[ITEM_COMPRA_ACC](
+       					icompacc_numero,
+  						icompacc_sucursal,
+						icompacc_acc,
+						icompacc_cantidad,
+						icompacc_precio
+
+)
+
+SELECT maestra.[COMPRA_NUMERO], suc_codigo, ACCESORIO.acc_codigo, SUM(maestra.[COMPRA_CANTIDAD]),maestra.[COMPRA_PRECIO]
+FROM GD1C2021.gd_esquema.Maestra maestra
+JOIN [LOCALHOST1].SUCURSAL ON suc_dir = maestra.SUCURSAL_DIR AND suc_mail = maestra.SUCURSAL_MAIL AND suc_telefono = maestra.SUCURSAL_TEL
+JOIN [LOCALHOST1].ACCESORIO ON ACCESORIO.acc_codigo = maestra.ACCESORIO_CODIGO 
+WHERE maestra.SUCURSAL_DIR IS NOT NULL AND COMPRA_NUMERO IS NOT NULL 
+GROUP BY maestra.[COMPRA_NUMERO], suc_codigo, ACCESORIO.acc_codigo, maestra.[COMPRA_PRECIO] 
+
+-- Migración de Items VENTA PC
+
+INSERT INTO [LOCALHOST1].[ITEM_VENTA_PC](
+						ivenpc_numero,
+  						ivenpc_sucursal,
+						ivenpc_pc,
+						ivenpc_cantidad,
+						ivenpc_precio
+)
+
+SELECT maestra.[FACTURA_NUMERO], suc_codigo, PC.pc_codigo, COUNT(*), PC.pc_precio
+FROM GD1C2021.gd_esquema.Maestra maestra
+JOIN [LOCALHOST1].SUCURSAL ON suc_dir = maestra.SUCURSAL_DIR AND suc_mail = maestra.SUCURSAL_MAIL AND suc_telefono = maestra.SUCURSAL_TEL
+JOIN [LOCALHOST1].PC ON PC.pc_codigo = maestra.PC_CODIGO
+WHERE FACTURA_NUMERO is not null
+group by maestra.[FACTURA_NUMERO], suc_codigo, PC.pc_codigo, PC.pc_precio
+
+-- Migración de Items VENTA ACCESORIO
+INSERT INTO [LOCALHOST1].[ITEM_VENTA_ACC](
+							ivenacc_numero,
+  							ivenacc_sucursal,
+							ivenacc_acc,
+							ivenacc_cantidad,
+							ivenacc_precio
+)
+
+SELECT maestra.[FACTURA_NUMERO], suc_codigo, ACC.ACC_CODIGO, COUNT(*), ACC.acc_precio
+FROM GD1C2021.gd_esquema.Maestra maestra
+JOIN [LOCALHOST1].SUCURSAL ON suc_dir = maestra.SUCURSAL_DIR AND suc_mail = maestra.SUCURSAL_MAIL AND suc_telefono = maestra.SUCURSAL_TEL
+JOIN [LOCALHOST1].Accesorio ACC ON ACC.acc_codigo = maestra.ACCESORIO_CODIGO
+WHERE FACTURA_NUMERO is not null and ACC.ACC_CODIGO is not null
+group by maestra.[FACTURA_NUMERO], suc_codigo, ACC.ACC_CODIGO, ACC.acc_precio
+
