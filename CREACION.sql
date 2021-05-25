@@ -766,108 +766,7 @@ JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR AND suc_telefono 
 WHERE FACTURA_NUMERO IS NOT NULL and ACCESORIO_CODIGO is not null
 group by ACCESORIO_CODIGO,  suc_codigo
 GO
-/*
-BEGIN
---CURSOR COMPRA PC
-			DECLARE @PC_COD nvarchar(50)
-			DECLARE @SUC int
-			DECLARE @CANT numeric(4,0)
-			DECLARE CURSOR_ICOMP_PC CURSOR
-			FOR
-			
-				SELECT * FROM LOCALHOST1.vista_stocks_PC_COMPRA
-				OPEN CURSOR_ICOMP_PC
-				FETCH NEXT FROM CURSOR_ICOMP_PC INTO @PC_COD, @SUC, @CANT
-				WHILE @@FETCH_STATUS = 0
-				BEGIN
 
-				UPDATE [LOCALHOST1].Stock_Pc
-				SET stockpc_cantidad = stockpc_cantidad + @CANT
-				FROM  LOCALHOST1.Stock_Pc 
-				where stockpc_pc = @PC_COD AND stockpc_sucursal = @SUC
-				FETCH NEXT FROM CURSOR_ICOMP_PC INTO @PC_COD, @SUC, @CANT
-
-				END
-				CLOSE CURSOR_ICOMP_PC
-				DEALLOCATE CURSOR_ICOMP_PC
-END		
---CURSOR VENTA PC
-GO
-BEGIN
-			DECLARE @ivenpc_pc nvarchar(50)
-			DECLARE @ivenpc_sucursal int
-			DECLARE @ivenpc_cantidad numeric(4,0)
-			DECLARE CURSOR_IVEN_PC CURSOR
-			FOR
-			
-				SELECT * FROM LOCALHOST1.vista_stocks_PC_VENTA
-				OPEN CURSOR_IVEN_PC
-				FETCH NEXT FROM CURSOR_IVEN_PC INTO @ivenpc_pc, @ivenpc_sucursal, @ivenpc_cantidad
-				WHILE @@FETCH_STATUS = 0
-				BEGIN
-
-				UPDATE [LOCALHOST1].Stock_Pc
-				SET stockpc_cantidad = stockpc_cantidad - @ivenpc_cantidad
-				FROM  LOCALHOST1.Stock_Pc 
-				where stockpc_pc = @ivenpc_pc AND stockpc_sucursal = @ivenpc_sucursal
-				FETCH NEXT FROM CURSOR_IVEN_PC INTO @ivenpc_pc, @ivenpc_sucursal, @ivenpc_cantidad
-
-				END
-				CLOSE CURSOR_IVEN_PC
-				DEALLOCATE CURSOR_IVEN_PC
-END
---CURSOR COMPRA ACC
-
-GO
-BEGIN
-			DECLARE @ACC_COD decimal(18,0)
-			DECLARE @SUC int
-			DECLARE @CANT int
-			DECLARE CURSOR_ICOMP_ACC CURSOR
-			FOR
-			
-				SELECT * FROM LOCALHOST1.vista_stocks_ACC_COMPRA
-				OPEN CURSOR_ICOMP_ACC
-				FETCH NEXT FROM CURSOR_ICOMP_ACC INTO @ACC_COD, @SUC, @CANT
-				WHILE @@FETCH_STATUS = 0
-				BEGIN
-
-				UPDATE [LOCALHOST1].Stock_Accesorio
-				SET stockacc_cantidad = stockacc_cantidad + @CANT
-				FROM  LOCALHOST1.Stock_Accesorio 
-				where stockacc_acc = @ACC_COD AND stockacc_sucursal = @SUC
-				FETCH NEXT FROM CURSOR_ICOMP_ACC INTO @ACC_COD, @SUC, @CANT
-
-				END
-				CLOSE CURSOR_ICOMP_ACC
-				DEALLOCATE CURSOR_ICOMP_ACC
-END		
---CURSOR VENTA ACC
-GO
-BEGIN
-			DECLARE @ivenpc_pc decimal(18,0)
-			DECLARE @ivenpc_sucursal int
-			DECLARE @ivenpc_cantidad int
-			DECLARE CURSOR_IVEN_ACC CURSOR
-			FOR
-			
-				SELECT * FROM LOCALHOST1.vista_stocks_ACC_VENTA
-				OPEN CURSOR_IVEN_ACC
-				FETCH NEXT FROM CURSOR_IVEN_ACC INTO @ivenpc_pc, @ivenpc_sucursal, @ivenpc_cantidad
-				WHILE @@FETCH_STATUS = 0
-				BEGIN
-
-				UPDATE [LOCALHOST1].Stock_Accesorio
-				SET stockacc_cantidad = stockacc_cantidad - @ivenpc_cantidad
-				FROM  LOCALHOST1.Stock_Accesorio 
-				where stockacc_acc = @ivenpc_pc AND stockacc_sucursal = @ivenpc_sucursal
-				FETCH NEXT FROM CURSOR_IVEN_ACC INTO @ivenpc_pc, @ivenpc_sucursal, @ivenpc_cantidad
-
-				END
-				CLOSE CURSOR_IVEN_ACC
-				DEALLOCATE CURSOR_IVEN_ACC
-END		
-*/
 --Migración de Stock Accesorio
 GO
 INSERT INTO [LOCALHOST1].[STOCK_ACCESORIO](
@@ -963,10 +862,10 @@ GO
 							ivenpc_precio
 )
 
-SELECT maestra.[FACTURA_NUMERO], suc_codigo, PC.pc_codigo, COUNT(*), PC.pc_precio
+SELECT maestra.[FACTURA_NUMERO], suc_codigo, PC.pc_codigo, COUNT(*), (PC.pc_precio + PC.pc_precio * 0.20)
 FROM LOCALHOST1.vista_item_venta maestra
 JOIN [LOCALHOST1].PC ON PC.pc_codigo = maestra.PC_CODIGO
-WHERE FACTURA_NUMERO is not null
+WHERE FACTURA_NUMERO is not null 
 group by maestra.[FACTURA_NUMERO], suc_codigo, PC.pc_codigo, PC.pc_precio
 
 GO
