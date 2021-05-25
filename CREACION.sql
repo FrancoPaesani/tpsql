@@ -260,22 +260,46 @@ BEGIN
 
 	IF @PC IN (SELECT pc_codigo FROM Pc)
 	BEGIN
-			UPDATE [LOCALHOST1].Stock_Pc
+		/*	UPDATE [LOCALHOST1].Stock_Pc
 			SET stockpc_cantidad = stockpc_cantidad - ivenpc_cantidad
 			FROM inserted INS
 			where INS.ivenpc_pc = Stock_Pc.stockpc_pc AND INS.ivenpc_sucursal = Stock_Pc.stockpc_sucursal;
+		*/
+			DECLARE @PC_COD nvarchar(50)
+			DECLARE @SUC int
+			DECLARE @CANT int
+			DECLARE @VENTA_NUM decimal(18,0)
+			DECLARE @PRECIO decimal(12,2)
+			DECLARE CURSOR_TR_VENTA_PC CURSOR
+			FOR
+			
+				SELECT ivenpc_numero, ivenpc_sucursal, ivenpc_pc, ivenpc_cantidad, ivenpc_precio FROM inserted
+				OPEN CURSOR_TR_VENTA_PC
+				FETCH NEXT FROM CURSOR_TR_VENTA_PC INTO @VENTA_NUM, @SUC, @PC_COD, @CANT, @PRECIO
+				WHILE @@FETCH_STATUS = 0
+				BEGIN
+				
+				UPDATE [LOCALHOST1].Stock_Pc
+				SET stockpc_cantidad = stockpc_cantidad - @CANT
+				FROM  LOCALHOST1.Stock_Pc 
+				WHERE stockpc_pc = @PC_COD AND stockpc_sucursal = @SUC
+				
+				UPDATE [LOCALHOST1].Factura_Venta
+				SET facven_total = ISNULL(facven_total,0) + (@PRECIO * @CANT)
+				FROM [LOCALHOST1].Factura_Venta
+				WHERE facven_numero = @VENTA_NUM AND facven_sucursal = @SUC
+
+				FETCH NEXT FROM CURSOR_TR_VENTA_PC INTO @VENTA_NUM, @SUC, @PC_COD, @CANT, @PRECIO
+
+				END
+				CLOSE CURSOR_TR_VENTA_PC
+				DEALLOCATE CURSOR_TR_VENTA_PC
 	END
 	ELSE
 	BEGIN
 		RAISERROR('No se puede vender una PC que no existe en el stock',16,1);
 		ROLLBACK TRANSACTION;
 	END
-
-	UPDATE [LOCALHOST1].Factura_Venta
-
-	SET facven_total = ISNULL(facven_total,0) + (ivenpc_precio * ivenpc_cantidad)
-	FROM inserted
-	JOIN [LOCALHOST1].Factura_Venta ON ivenpc_numero = facven_numero AND ivenpc_sucursal = facven_sucursal
 END
 
 -- TRIGGER EFECTUAR VENTA ACCESORIO
@@ -343,17 +367,42 @@ BEGIN
   
   IF @PC IN (SELECT stockpc_pc FROM Stock_Pc)
   BEGIN
-  	UPDATE [LOCALHOST1].Stock_Pc
-    SET stockpc_cantidad = stockpc_cantidad + icomppc_cantidad
-    FROM inserted INS
-    WHERE INS.icomppc_pc = Stock_Pc.stockpc_pc AND INS.icomppc_sucursal = Stock_Pc.stockpc_sucursal; 
+			DECLARE @PC_COD nvarchar(50)
+			DECLARE @SUC int
+			DECLARE @CANT int
+			DECLARE @COMPRA_NUM decimal(18,0)
+			DECLARE @PRECIO decimal(12,2)
+			DECLARE CURSOR_TR_COMPRA_PC CURSOR
+			FOR
+			
+				SELECT icomppc_numero, icomppc_sucursal, icomppc_pc, icomppc_cantidad, icomppc_precio FROM inserted
+				OPEN CURSOR_TR_COMPRA_PC
+				FETCH NEXT FROM CURSOR_TR_COMPRA_PC INTO @COMPRA_NUM, @SUC, @PC_COD, @CANT, @PRECIO
+				WHILE @@FETCH_STATUS = 0
+				BEGIN
+				
+				UPDATE [LOCALHOST1].Stock_Pc
+				SET stockpc_cantidad = stockpc_cantidad + @CANT
+				FROM  LOCALHOST1.Stock_Pc 
+				WHERE stockpc_pc = @PC_COD AND stockpc_sucursal = @SUC
+				
+				UPDATE [LOCALHOST1].Factura_Compra
+				SET faccomp_total = ISNULL(faccomp_total,0) + (@PRECIO * @CANT)
+				FROM [LOCALHOST1].Factura_Compra
+				WHERE faccomp_numero = @COMPRA_NUM AND faccomp_sucursal = @SUC
+
+				FETCH NEXT FROM CURSOR_TR_COMPRA_PC INTO @COMPRA_NUM, @SUC, @PC_COD, @CANT, @PRECIO
+
+				END
+				CLOSE CURSOR_TR_COMPRA_PC
+				DEALLOCATE CURSOR_TR_COMPRA_PC
   END
   
-  UPDATE [LOCALHOST1].Factura_Compra
+  /*UPDATE [LOCALHOST1].Factura_Compra
   
   SET faccomp_total = ISNULL(faccomp_total,0) + (icomppc_precio * icomppc_cantidad)
   FROM inserted
-  JOIN [LOCALHOST1].Factura_Compra ON icomppc_numero = faccomp_numero AND icomppc_sucursal = faccomp_sucursal
+  JOIN [LOCALHOST1].Factura_Compra ON icomppc_numero = faccomp_numero AND icomppc_sucursal = faccomp_sucursal*/
 END
 
 GO
@@ -365,7 +414,7 @@ GO
 CREATE TRIGGER [LOCALHOST1].TR_EFECTUAR_COMPRA_ACCESORIO ON [LOCALHOST1].ITEM_COMPRA_ACC AFTER INSERT
 AS
 BEGIN
-	DECLARE @ACC nvarchar(50)
+  DECLARE @ACC decimal(18,0)
   SELECT @ACC =	icompacc_acc FROM inserted
   
   IF @ACC IN (SELECT stockacc_acc FROM Stock_Accesorio)
@@ -381,7 +430,7 @@ BEGIN
 			DECLARE @PRECIO decimal(12,2)
 			DECLARE CURSOR_TR_COMPRA_ACC CURSOR
 			FOR
-			
+
 				SELECT icompacc_numero, icompacc_sucursal, icompacc_acc, icompacc_cantidad, icompacc_precio FROM inserted
 				OPEN CURSOR_TR_COMPRA_ACC
 				FETCH NEXT FROM CURSOR_TR_COMPRA_ACC INTO @COMPRA_NUM, @SUC, @ACC_COD, @CANT, @PRECIO
@@ -717,6 +766,7 @@ JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR AND suc_telefono 
 WHERE FACTURA_NUMERO IS NOT NULL and ACCESORIO_CODIGO is not null
 group by ACCESORIO_CODIGO,  suc_codigo
 GO
+/*
 BEGIN
 --CURSOR COMPRA PC
 			DECLARE @PC_COD nvarchar(50)
@@ -767,7 +817,7 @@ BEGIN
 				DEALLOCATE CURSOR_IVEN_PC
 END
 --CURSOR COMPRA ACC
-/*
+
 GO
 BEGIN
 			DECLARE @ACC_COD decimal(18,0)
@@ -935,21 +985,3 @@ JOIN [LOCALHOST1].Accesorio ACC ON ACC.acc_codigo = maestra.ACCESORIO_CODIGO
 WHERE FACTURA_NUMERO is not null
 group by maestra.[FACTURA_NUMERO], suc_codigo, ACC.ACC_CODIGO, ACC.acc_precio
 
-
-/*
-select * from LOCALHOST1.Stock_Accesorio
-
-select icompacc_acc, icompacc_sucursal, sum(icompacc_cantidad) from LOCALHOST1.Item_Compra_Acc
-group by icompacc_acc, icompacc_sucursal
-order by icompacc_acc, icompacc_sucursal
-
-select ivenacc_acc, ivenacc_sucursal, sum(ivenacc_cantidad) from LOCALHOST1.Item_Venta_Acc
-group by ivenacc_acc, ivenacc_sucursal
-order by ivenacc_acc, ivenacc_sucursal
-*/
---1001 1 39457 stock
-
-select * from LOCALHOST1.Factura_Compra
-where faccomp_numero = '127131'
-select sum(icompacc_cantidad * icompacc_precio) from LOCALHOST1.Item_Compra_Acc
-where icompacc_numero = '127131'
