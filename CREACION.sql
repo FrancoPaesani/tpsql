@@ -26,6 +26,7 @@ CREATE TABLE [LOCALHOST1].Accesorio(
 				acc_codigo decimal(18,0) NOT NULL,
 				acc_descripcion nvarchar(255),
 				acc_precio decimal(12,2),
+  				acc_fabricante int FOREIGN KEY REFERENCES [LOCALHOST1].Fabricante(fab_codigo),
 				CONSTRAINT PK_ACCESORIO PRIMARY KEY(acc_codigo)
 )
 
@@ -81,9 +82,10 @@ CREATE TABLE [LOCALHOST1].Ram(
 					CONSTRAINT PK_RAM PRIMARY KEY(ram_codigo)
 )
 
-CREATE TABLE [LOCALHOST1].RAM_X_PC(
+CREATE TABLE [LOCALHOST1].RAM_x_Pc(
 					ramxpc_pc nvarchar(50) FOREIGN KEY REFERENCES [LOCALHOST1].Pc(pc_codigo),
 					ramxpc_ram nvarchar(255) FOREIGN KEY REFERENCES [LOCALHOST1].Ram(ram_codigo),
+					ramxpc_cantidad int,
 					CONSTRAINT PK_RAM_X_PC PRIMARY KEY(ramxpc_pc,ramxpc_ram)
 )
 
@@ -100,6 +102,7 @@ CREATE TABLE [LOCALHOST1].Disco_Almacenamiento(
 CREATE TABLE [LOCALHOST1].Disco_x_Pc(
 					discopc_pc nvarchar(50) FOREIGN KEY REFERENCES [LOCALHOST1].Pc(pc_codigo),
 					discopc_disco nvarchar(255) FOREIGN KEY REFERENCES [LOCALHOST1].Disco_Almacenamiento(disco_codigo),
+					discopc_cantidad int,
 					CONSTRAINT PK_DISCO_X_PX PRIMARY KEY(discopc_pc,discopc_disco)
 )
 
@@ -159,7 +162,6 @@ CREATE TABLE [LOCALHOST1].Factura_Venta(
 CREATE TABLE [LOCALHOST1].Item_Venta_Pc(
 					ivenpc_numero decimal(18,0) NOT NULL,
   					ivenpc_sucursal int NOT NULL,
-  					ivenpc_renglonpc int IDENTITY(1,1) NOT NULL,
 					ivenpc_pc nvarchar(50) FOREIGN KEY REFERENCES [LOCALHOST1].Pc(pc_codigo),
 					ivenpc_cantidad numeric(4),
 					ivenpc_precio decimal(12,2),
@@ -170,7 +172,6 @@ CREATE TABLE [LOCALHOST1].Item_Venta_Pc(
 CREATE TABLE [LOCALHOST1].Item_Venta_Acc(
 					ivenacc_numero decimal(18,0),
   					ivenacc_sucursal int NOT NULL,
-  					ivenacc_renglonpc int IDENTITY(1,1) NOT NULL,
 					ivenacc_acc decimal(18,0) FOREIGN KEY REFERENCES [LOCALHOST1].Accesorio(acc_codigo),
 					ivenacc_cantidad numeric(4),
 					ivenacc_precio decimal(12,2),
@@ -192,8 +193,7 @@ CREATE TABLE [LOCALHOST1].Factura_Compra(
 
 CREATE TABLE [LOCALHOST1].Item_Compra_Pc(
 					icomppc_numero decimal(18,0) NOT NULL,
-  				icomppc_sucursal int NOT NULL,
-  				icomppc_renglonpc int IDENTITY(1,1) NOT NULL,
+  					icomppc_sucursal int NOT NULL,
 					icomppc_pc nvarchar(50) FOREIGN KEY REFERENCES [LOCALHOST1].Pc(pc_codigo),
 					icomppc_cantidad numeric(4),
 					icomppc_precio decimal(12,2),
@@ -203,9 +203,8 @@ CREATE TABLE [LOCALHOST1].Item_Compra_Pc(
 
 CREATE TABLE [LOCALHOST1].Item_Compra_Acc(
 					icompacc_numero decimal(18,0),
-  				icompacc_sucursal int NOT NULL,
-  				icompacc_renglonpc int IDENTITY(1,1) NOT NULL,
-  				icompacc_acc decimal(18,0) FOREIGN KEY REFERENCES [LOCALHOST1].Accesorio(acc_codigo),
+  					icompacc_sucursal int NOT NULL,
+  					icompacc_acc decimal(18,0) FOREIGN KEY REFERENCES [LOCALHOST1].Accesorio(acc_codigo),
 					icompacc_cantidad numeric(4),
 					icompacc_precio decimal(12,2),
 					CONSTRAINT FK_ITEM_COMPRA_ACC FOREIGN KEY(icompacc_numero,icompacc_sucursal) REFERENCES [LOCALHOST1].Factura_Compra(faccomp_numero,faccomp_sucursal),
@@ -242,8 +241,48 @@ JOIN [LOCALHOST1].SUCURSAL ON suc_dir = maestra.SUCURSAL_DIR AND suc_telefono = 
 WHERE FACTURA_NUMERO is not null
 GO
 
--- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TRIGGERS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-- CRECIÓN DE VISTA STOCK PC COMPRA
 
+GO
+CREATE VIEW LOCALHOST1.vista_stocks_PC_COMPRA AS
+SELECT PC_CODIGO,  suc_codigo, SUM(COMPRA_CANTIDAD) AS CANTIDAD
+FROM GD1C2021.gd_esquema.Maestra maestra
+JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR AND suc_telefono = maestra.SUCURSAL_TEL
+WHERE COMPRA_NUMERO IS NOT NULL and PC_CODIGO is not null
+group by PC_CODIGO,  suc_codigo
+GO
+
+-- CRECIÓN DE VISTA STOCK PC VENTA
+
+CREATE VIEW LOCALHOST1.vista_stocks_PC_VENTA AS
+SELECT PC_CODIGO,  suc_codigo, COUNT(*) AS CANTIDAD
+FROM GD1C2021.gd_esquema.Maestra maestra
+JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR AND suc_telefono = maestra.SUCURSAL_TEL
+WHERE FACTURA_NUMERO IS NOT NULL and PC_CODIGO is not null
+group by PC_CODIGO,  suc_codigo
+GO
+
+-- CRECIÓN DE VISTA STOCK ACCSEORIO COMPRA
+
+CREATE VIEW LOCALHOST1.vista_stocks_ACC_COMPRA AS
+SELECT ACCESORIO_CODIGO,  suc_codigo, SUM(COMPRA_CANTIDAD) AS CANTIDAD
+FROM GD1C2021.gd_esquema.Maestra maestra
+JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR AND suc_telefono = maestra.SUCURSAL_TEL
+WHERE COMPRA_NUMERO IS NOT NULL and ACCESORIO_CODIGO is not null
+group by ACCESORIO_CODIGO,  suc_codigo
+GO
+
+-- CRECIÓN DE VISTA STOCK ACCSESRIO VENTA
+
+CREATE VIEW LOCALHOST1.vista_stocks_ACC_VENTA AS
+SELECT ACCESORIO_CODIGO,  suc_codigo, COUNT(*) AS CANTIDAD
+FROM GD1C2021.gd_esquema.Maestra maestra
+JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR AND suc_telefono = maestra.SUCURSAL_TEL
+WHERE FACTURA_NUMERO IS NOT NULL and ACCESORIO_CODIGO is not null
+group by ACCESORIO_CODIGO,  suc_codigo
+GO
+
+-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TRIGGERS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 -- TRIGGER EFECTUAR VENTA PC
@@ -260,11 +299,7 @@ BEGIN
 
 	IF @PC IN (SELECT pc_codigo FROM Pc)
 	BEGIN
-		/*	UPDATE [LOCALHOST1].Stock_Pc
-			SET stockpc_cantidad = stockpc_cantidad - ivenpc_cantidad
-			FROM inserted INS
-			where INS.ivenpc_pc = Stock_Pc.stockpc_pc AND INS.ivenpc_sucursal = Stock_Pc.stockpc_sucursal;
-		*/
+
 			DECLARE @PC_COD nvarchar(50)
 			DECLARE @SUC int
 			DECLARE @CANT int
@@ -311,10 +346,10 @@ GO
 CREATE TRIGGER [LOCALHOST1].TR_EFECTUAR_VENTA_ACCESORIO ON [LOCALHOST1].ITEM_VENTA_ACC AFTER INSERT
 AS
 BEGIN
-	DECLARE @PC nvarchar(50)
-	SELECT @PC = ivenacc_acc FROM inserted
+	DECLARE @ACC decimal(18,0)
+	SELECT @ACC = ivenacc_acc FROM inserted
 
-	IF  @PC IN (SELECT stockacc_acc FROM Stock_Accesorio)
+	IF  @ACC IN (SELECT stockacc_acc FROM Stock_Accesorio)
 	BEGIN
 			DECLARE @ACC_COD decimal(18,0)
 			DECLARE @SUC int
@@ -362,10 +397,6 @@ GO
 CREATE TRIGGER [LOCALHOST1].TR_EFECTUAR_COMPRA_PC ON [LOCALHOST1].ITEM_COMPRA_PC AFTER INSERT
 AS
 BEGIN
-	DECLARE @PC nvarchar(50)
-  SELECT @PC =	icomppc_pc FROM inserted
-  
-  IF @PC IN (SELECT stockpc_pc FROM Stock_Pc)
   BEGIN
 			DECLARE @PC_COD nvarchar(50)
 			DECLARE @SUC int
@@ -397,12 +428,6 @@ BEGIN
 				CLOSE CURSOR_TR_COMPRA_PC
 				DEALLOCATE CURSOR_TR_COMPRA_PC
   END
-  
-  /*UPDATE [LOCALHOST1].Factura_Compra
-  
-  SET faccomp_total = ISNULL(faccomp_total,0) + (icomppc_precio * icomppc_cantidad)
-  FROM inserted
-  JOIN [LOCALHOST1].Factura_Compra ON icomppc_numero = faccomp_numero AND icomppc_sucursal = faccomp_sucursal*/
 END
 
 GO
@@ -414,15 +439,8 @@ GO
 CREATE TRIGGER [LOCALHOST1].TR_EFECTUAR_COMPRA_ACCESORIO ON [LOCALHOST1].ITEM_COMPRA_ACC AFTER INSERT
 AS
 BEGIN
-  DECLARE @ACC decimal(18,0)
-  SELECT @ACC =	icompacc_acc FROM inserted
-  
-  IF @ACC IN (SELECT stockacc_acc FROM Stock_Accesorio)
   BEGIN
-  /*	UPDATE [LOCALHOST1].Stock_Accesorio
-    SET stockacc_cantidad = stockacc_cantidad + INS.icompacc_cantidad
-    FROM inserted INS
-    WHERE INS.icompacc_acc = Stock_Accesorio.stockacc_acc AND INS.icompacc_sucursal = Stock_Accesorio.stockacc_sucursal;*/
+
 			DECLARE @ACC_COD decimal(18,0)
 			DECLARE @SUC int
 			DECLARE @CANT int
@@ -525,12 +543,7 @@ SELECT DISTINCT maestra.[ACCESORIO_CODIGO],
                 maestra.[COMPRA_PRECIO] 
 FROM GD1C2021.gd_esquema.Maestra maestra
 WHERE [ACCESORIO_CODIGO] is not NULL and [COMPRA_PRECIO] is not NULL
-/*
-SELECT ACCESORIO_CODIGO, AC_DESCRIPCION, COMPRA_PRECIO
-FROM GD1C2021.gd_esquema.Maestra
-WHERE ACCESORIO_CODIGO IS NOT NULL AND COMPRA_PRECIO IS NOT NULL
-GROUP BY ACCESORIO_CODIGO, AC_DESCRIPCION, COMPRA_PRECIO
-*/
+
 GO
 
 -- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Migración de Placa de video %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -663,14 +676,15 @@ GO
 
 INSERT INTO [LOCALHOST1].[RAM_X_PC](
   				ramxpc_pc,
-					ramxpc_ram
+				ramxpc_ram,
+				ramxpc_cantidad
 )
 
-SELECT DISTINCT maestra.[PC_CODIGO],
-								maestra.[MEMORIA_RAM_CODIGO]
+SELECT DISTINCT maestra.[PC_CODIGO],maestra.[MEMORIA_RAM_CODIGO],COUNT(DISTINCT maestra.MEMORIA_RAM_CODIGO)
 
 FROM GD1C2021.gd_esquema.Maestra maestra
 WHERE [PC_CODIGO] IS NOT NULL AND [MEMORIA_RAM_CODIGO] IS NOT NULL
+GROUP BY maestra.PC_CODIGO,maestra.MEMORIA_RAM_CODIGO
 GO
 /* select * from LOCALHOST1.Pc
 join LOCALHOST1.RAM_X_PC on pc_codigo = ramxpc_pc*/
@@ -680,14 +694,15 @@ join LOCALHOST1.RAM_X_PC on pc_codigo = ramxpc_pc*/
 
 INSERT INTO [LOCALHOST1].[DISCO_X_PC](
   				discopc_pc,
-					discopc_disco
+				discopc_disco,
+				discopc_cantidad
 )
 
-SELECT DISTINCT maestra.[PC_CODIGO],
-								maestra.[DISCO_RIGIDO_CODIGO]
+SELECT DISTINCT maestra.[PC_CODIGO],maestra.[DISCO_RIGIDO_CODIGO],COUNT(DISTINCT maestra.DISCO_RIGIDO_CODIGO)
 
 FROM GD1C2021.gd_esquema.Maestra maestra
 WHERE [PC_CODIGO] IS NOT NULL AND [DISCO_RIGIDO_CODIGO] IS NOT NULL
+GROUP BY maestra.PC_CODIGO,maestra.DISCO_RIGIDO_CODIGO
 GO
 -- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Migración de Ciudad %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -737,37 +752,10 @@ WHERE maestra.PC_CODIGO IS NOT NULL AND maestra.CIUDAD IS NOT NULL AND  maestra.
 AND maestra.COMPRA_NUMERO IS NOT NULL AND maestra.FACTURA_NUMERO is NULL
 GROUP BY suc_codigo, maestra.PC_CODIGO, SUCURSAL_DIR
 
-GO
-CREATE VIEW LOCALHOST1.vista_stocks_PC_COMPRA AS
-SELECT PC_CODIGO,  suc_codigo, SUM(COMPRA_CANTIDAD) AS CANTIDAD
-FROM GD1C2021.gd_esquema.Maestra maestra
-JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR AND suc_telefono = maestra.SUCURSAL_TEL
-WHERE COMPRA_NUMERO IS NOT NULL and PC_CODIGO is not null
-group by PC_CODIGO,  suc_codigo
-GO
-CREATE VIEW LOCALHOST1.vista_stocks_PC_VENTA AS
-SELECT PC_CODIGO,  suc_codigo, COUNT(*) AS CANTIDAD
-FROM GD1C2021.gd_esquema.Maestra maestra
-JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR AND suc_telefono = maestra.SUCURSAL_TEL
-WHERE FACTURA_NUMERO IS NOT NULL and PC_CODIGO is not null
-group by PC_CODIGO,  suc_codigo
-GO
-CREATE VIEW LOCALHOST1.vista_stocks_ACC_COMPRA AS
-SELECT ACCESORIO_CODIGO,  suc_codigo, SUM(COMPRA_CANTIDAD) AS CANTIDAD
-FROM GD1C2021.gd_esquema.Maestra maestra
-JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR AND suc_telefono = maestra.SUCURSAL_TEL
-WHERE COMPRA_NUMERO IS NOT NULL and ACCESORIO_CODIGO is not null
-group by ACCESORIO_CODIGO,  suc_codigo
-GO
-CREATE VIEW LOCALHOST1.vista_stocks_ACC_VENTA AS
-SELECT ACCESORIO_CODIGO,  suc_codigo, COUNT(*) AS CANTIDAD
-FROM GD1C2021.gd_esquema.Maestra maestra
-JOIN [LOCALHOST1].[SUCURSAL] ON suc_dir = maestra.SUCURSAL_DIR AND suc_telefono = maestra.SUCURSAL_TEL
-WHERE FACTURA_NUMERO IS NOT NULL and ACCESORIO_CODIGO is not null
-group by ACCESORIO_CODIGO,  suc_codigo
-GO
+
 
 --Migración de Stock Accesorio
+
 GO
 INSERT INTO [LOCALHOST1].[STOCK_ACCESORIO](
 					stockacc_acc,
@@ -787,6 +775,7 @@ GROUP BY suc_codigo, maestra.ACCESORIO_CODIGO, SUCURSAL_DIR
 -- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Migración de Facturas %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 --Migración de Factura Compra
+
 GO
 INSERT INTO [LOCALHOST1].[FACTURA_COMPRA](
   				faccomp_numero,
@@ -801,6 +790,7 @@ FROM LOCALHOST1.vista_facturas maestra
 WHERE maestra.SUCURSAL_DIR IS NOT NULL AND COMPRA_NUMERO IS NOT NULL
 
 --Migración de Factura Venta
+
 GO
 INSERT INTO [LOCALHOST1].[FACTURA_VENTA](
 					facven_numero,
@@ -819,8 +809,9 @@ where FACTURA_NUMERO is not null
 
 -- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Migración de Items %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-GO
 -- Migración de Items COMPRA PC 
+
+GO
 INSERT INTO [LOCALHOST1].[ITEM_COMPRA_PC](
        					icomppc_numero,
   						icomppc_sucursal,
@@ -835,7 +826,8 @@ JOIN [LOCALHOST1].PC ON PC.pc_codigo = c.PC_CODIGO
 WHERE c.suc_codigo IS NOT NULL AND c.COMPRA_NUMERO IS NOT NULL
 GROUP BY c.[COMPRA_NUMERO], suc_codigo, PC.pc_codigo, c.[COMPRA_PRECIO]
                                
--- Migración de Items COMPRA ACCESORIO 
+-- Migración de Items COMPRA ACCESORIO
+ 
 GO
 INSERT INTO [LOCALHOST1].[ITEM_COMPRA_ACC](
        					icompacc_numero,
@@ -853,7 +845,9 @@ WHERE c.ACCESORIO_CODIGO IS NOT NULL AND c.COMPRA_NUMERO IS NOT NULL
 GROUP BY c.[COMPRA_NUMERO], suc_codigo, ACCESORIO.acc_codigo, c.[COMPRA_PRECIO]
 
 GO
+
 -- Migración de Items VENTA PC 
+
 		INSERT INTO [LOCALHOST1].[ITEM_VENTA_PC](
 							ivenpc_numero,
   							ivenpc_sucursal,
@@ -862,14 +856,16 @@ GO
 							ivenpc_precio
 )
 
-SELECT maestra.[FACTURA_NUMERO], suc_codigo, PC.pc_codigo, COUNT(*), (PC.pc_precio + PC.pc_precio * 0.20)
+SELECT maestra.[FACTURA_NUMERO], suc_codigo, PC.pc_codigo, COUNT(*), (PC.pc_precio * 1.20)
 FROM LOCALHOST1.vista_item_venta maestra
 JOIN [LOCALHOST1].PC ON PC.pc_codigo = maestra.PC_CODIGO
 WHERE FACTURA_NUMERO is not null 
 group by maestra.[FACTURA_NUMERO], suc_codigo, PC.pc_codigo, PC.pc_precio
 
 GO
+
 -- Migración de Items VENTA ACCESORIO
+
 		INSERT INTO [LOCALHOST1].[ITEM_VENTA_ACC](
 							ivenacc_numero,
   							ivenacc_sucursal,
@@ -883,4 +879,3 @@ FROM LOCALHOST1.vista_item_venta maestra
 JOIN [LOCALHOST1].Accesorio ACC ON ACC.acc_codigo = maestra.ACCESORIO_CODIGO
 WHERE FACTURA_NUMERO is not null
 group by maestra.[FACTURA_NUMERO], suc_codigo, ACC.ACC_CODIGO, ACC.acc_precio
-
